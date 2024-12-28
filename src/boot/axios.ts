@@ -1,31 +1,91 @@
-import { defineBoot } from '#q-app/wrappers';
-import axios, { type AxiosInstance } from 'axios';
+import type {
+  AxiosInstance,
+  AxiosRequestConfig,
+  AxiosResponse,
+  InternalAxiosRequestConfig,
+} from 'axios'
+import axios from 'axios'
+import { boot } from 'quasar/wrappers'
 
-declare module 'vue' {
+declare module '@vue/runtime-core' {
   interface ComponentCustomProperties {
-    $axios: AxiosInstance;
-    $api: AxiosInstance;
+    $axios: AxiosInstance
+    $api: AxiosInstance
   }
 }
 
-// Be careful when using SSR for cross-request state pollution
-// due to creating a Singleton instance here;
-// If any client changes this (global) instance, it might be a
-// good idea to move this instance creation inside of the
-// "export default () => {}" function below (which runs individually
-// for each client)
-const api = axios.create({ baseURL: 'https://api.example.com' });
+function getDefaultConfig(config: AxiosRequestConfig | undefined): InternalAxiosRequestConfig {
+  const token = localStorage.getItem('token')
 
-export default defineBoot(({ app }) => {
-  // for use inside Vue files (Options API) through this.$axios and this.$api
+  if (!config) {
+    config = {}
+  }
+  if (!config.headers) {
+    config.headers = {}
+  }
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  if (!config.headers['Content-Type']) {
+    config.headers['Content-Type'] = 'application/json'
+  }
 
-  app.config.globalProperties.$axios = axios;
-  // ^ ^ ^ this will allow you to use this.$axios (for Vue Options API form)
-  //       so you won't necessarily have to import axios in each vue file
+  // Cast to InternalAxiosRequestConfig
+  return config as InternalAxiosRequestConfig
+}
 
-  app.config.globalProperties.$api = api;
-  // ^ ^ ^ this will allow you to use this.$api (for Vue Options API form)
-  //       so you can easily perform requests against your app's API
-});
+// Create Axios instance
+const api = axios.create({
+  //change this to your own api
+  baseURL: 'https://jsonplaceholder.typicode.com/',
+  timeout: 10000,
+})
 
-export { api };
+const axiosResponseHandler = (res: AxiosResponse) => {
+  return {
+    ...res,
+    data: res.data,
+  }
+}
+
+api.interceptors.request.use(
+  (config) => getDefaultConfig(config || undefined),
+  (error) => {
+    console.error('Request error:', error)
+    return Promise.reject(error)
+  },
+)
+
+api.interceptors.response.use(axiosResponseHandler, (error) => {
+  if (error.response) {
+    switch (error.response.status) {
+      case 401:
+        console.warn('Unauthorized. Redirecting to login...')
+        break
+      case 403:
+        console.warn('Forbidden. You do not have access.')
+        break
+      case 404:
+        console.error('Resource not found:', error.response.config.url)
+        break
+      case 500:
+        console.error('Server error. Try again later.')
+        break
+      default:
+        console.error('Unhandled error:', error.response.status)
+    }
+  } else if (error.request) {
+    console.error('No response from server:', error.request)
+  } else {
+    console.error('Request setup error:', error.message)
+  }
+  return Promise.reject(error)
+})
+
+export default boot(({ app }) => {
+  // Make both the default Axios instance and the custom API instance available
+  app.config.globalProperties.$axios = axios
+  app.config.globalProperties.$api = api
+})
+
+export { api }
