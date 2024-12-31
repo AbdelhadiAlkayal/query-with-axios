@@ -6,7 +6,23 @@ import type {
 } from 'axios'
 import axios from 'axios'
 import { boot } from 'quasar/wrappers'
+import type { IResponse } from 'query-with-axios'
 
+export interface IGetPosts {
+  userId: string
+  id: string
+  title: string
+  body: string
+}
+
+export interface IPostsRoute {
+  // Define a method named `getPosts` that returns a generic `IResponse` object containing an array of `IGetPosts` objects.
+  // This represents a request to retrieve multiple posts.
+  getPosts: () => IResponse<IGetPosts[]>
+  // Define a method named `getPostById` that takes a string `id` as input and returns a generic `IResponse` object containing a single `IGetPosts` object.
+  // This represents a request to retrieve a specific post by its ID.
+  getPostById: (id: string) => IResponse<IGetPosts>
+}
 declare module '@vue/runtime-core' {
   interface ComponentCustomProperties {
     $axios: AxiosInstance

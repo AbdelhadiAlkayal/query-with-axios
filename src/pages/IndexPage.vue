@@ -8,8 +8,8 @@
 </template>
 
 <script setup lang="ts">
-import { useQueryWithAxios } from 'src/api/hook/useQueryAxios'
 import { ref } from 'vue'
+import { useQueryWithAxios } from 'query-with-axios'
 
 const postId = ref<string>('1')
 
